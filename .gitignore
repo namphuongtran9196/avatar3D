@@ -1,3 +1,8 @@
+modules/smplx/smplx_pose/data
+modules/smplx/smplx_pose/openpose/models
+modules/smplx/smplx_pose/smplifyx/models
+.DS_Store
+
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
