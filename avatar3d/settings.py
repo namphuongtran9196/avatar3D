@@ -28,6 +28,7 @@ DEBUG = True
 ALLOWED_HOSTS = ['*']
 
 
+DATA_UPLOAD_MAX_MEMORY_SIZE = 55242880
 # Application definition
 
 INSTALLED_APPS = [
