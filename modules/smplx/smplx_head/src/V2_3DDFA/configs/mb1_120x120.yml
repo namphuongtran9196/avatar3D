@@ -1,0 +1,8 @@
+arch: mobilenet # MobileNet V1
+widen_factor: 1.0
+checkpoint_fp: modules/smplx/smplx_head/src/V2_3DDFA/weights/mb1/mb1_120x120.pth
+bfm_fp: modules/smplx/smplx_head/src/V2_3DDFA/weights/bfm_noneck_v3.pkl # or configs/bfm_noneck_v3_slim.pkl
+bfm_fp_onnx: modules/smplx/smplx_head/src/V2_3DDFA/weights/mb1/bfm_noneck_v3.onnx
+face_boxes: modules/smplx/smplx_head/src/V2_3DDFA/weights/mb1/FaceBoxesProd.onnx
+size: 120
+num_params: 62

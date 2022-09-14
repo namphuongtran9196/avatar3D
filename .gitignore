@@ -1,3 +1,5 @@
+modules/smplx/smplx_head/src/V2_3DDFA/weights
+modules/smplx/smplx_head/models/smplx
 ## Core latex/pdflatex auxiliary files:
 *.aux
 *.lof
