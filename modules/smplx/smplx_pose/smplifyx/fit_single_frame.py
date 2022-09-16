@@ -91,7 +91,7 @@ def fit_single_frame(img,
                      use_joints_conf=False,
                      interactive=True,
                      visualize=False,
-                     save_meshes=True,
+                     save_meshes=False,
                      degrees=None,
                      batch_size=1,
                      dtype=torch.float32,
@@ -475,13 +475,13 @@ def fit_single_frame(img,
             results.append({'loss': final_loss_val,
                             'result': result})
 
-        with open(result_fn, 'wb') as result_file:
-            if len(results) > 1:
-                min_idx = (0 if results[0]['loss'] < results[1]['loss']
-                           else 1)
-            else:
-                min_idx = 0
-            pickle.dump(results[min_idx]['result'], result_file, protocol=2)
+        # with open(result_fn, 'wb') as result_file:
+        #     if len(results) > 1:
+        #         min_idx = (0 if results[0]['loss'] < results[1]['loss']
+        #                    else 1)
+        #     else:
+        #         min_idx = 0
+        #     pickle.dump(results[min_idx]['result'], result_file, protocol=2)
 
     if save_meshes or visualize:
         body_pose = vposer.decode(
@@ -548,6 +548,8 @@ def fit_single_frame(img,
         out_img_save_path = os.path.join(save_dir_results, '%05d.png' % fid)
         output_img.save(out_img_save_path)
         print("saved rendered mesh to %s" % out_img_save_path)
+        
+    return results
 
 
 def render_mesh(mesh_trimesh, camera_center, camera_transl, focal_length, img_width, img_height):
