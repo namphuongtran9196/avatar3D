@@ -1,7 +1,7 @@
-from utils import JointMapper, smpl_to_openpose
-from camera import create_camera
-from prior import create_prior
-from fit_single_frame import fit_single_frame
+from modules.smplx.smplx_pose.smplifyx.utils import JointMapper, smpl_to_openpose
+from modules.smplx.smplx_pose.smplifyx.camera import create_camera
+from modules.smplx.smplx_pose.smplifyx.prior import create_prior
+from modules.smplx.smplx_pose.smplifyx.fit_single_frame import fit_single_frame
 import yaml
 import smplx
 import torch

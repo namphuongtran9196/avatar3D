@@ -1,7 +1,7 @@
 import os
 from modules.smplx.model3d import BaseModel
 import subprocess
-from smplifyx.SMPLifyXModel import SMPLifyXModel as XModel
+from modules.smplx.smplx_pose.smplifyx.SMPLifyXModel import SMPLifyXModel as XModel
 
 ABS_DIR_PATH = os.path.dirname(__file__)
 BASE_DIR_NAME = {
