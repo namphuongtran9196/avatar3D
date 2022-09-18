@@ -1,6 +1,5 @@
 import os
 from modules.smplx.model3d import BaseModel
-import subprocess
 from modules.smplx.smplx_pose.smplifyx.SMPLifyXModel import SMPLifyXModel as XModel
 
 ABS_DIR_PATH = os.path.dirname(__file__)
@@ -27,10 +26,10 @@ class SMPLX_Pose(BaseModel):
                Exception('model_type is undefined, make sure it is "smplx", "smplh" or "smpl"')
         
         self.model_type = model_type
-        self.xmodel = XModel(SMPL_CONFIG_FILE[model_type])
+        # self.xmodel = XModel(SMPL_CONFIG_FILE[model_type])
     
     # the inherited predict function is used to call your custom functions
-    def predict(self, dir_name, gender, write_images=False, **kwargs):
+    def predict(self, dir_name, gender, **kwargs):
         """Predicts the output of the model given the inputs.
 
         Args:
@@ -41,16 +40,11 @@ class SMPLX_Pose(BaseModel):
         ### Extract OpenPose keypoints
         image_dir = os.path.join(BASE_DIR_NAME['img'], dir_name)
         keypoint_dir = os.path.join(BASE_DIR_NAME['kp'], dir_name)
-        keypoint_images_dir = os.path.join(BASE_DIR_NAME['kp_img'], dir_name)
+        # keypoint_images_dir = os.path.join(BASE_DIR_NAME['kp_img'], dir_name)
         
         OPENPOSE_BIN = os.path.join(ABS_DIR_PATH, 'openpose', 'build', 'examples', 'openpose', 'openpose.bin')
-        cmd = [OPENPOSE_BIN,
-               '--image-dir', f'{image_dir}',
-               '--write-json',f'{keypoint_dir}',
-               '--face', '--hand', '--display', '0']
-        if write_images:
-            cmd += ['--write_images', f'{keypoint_images_dir}']
-        subprocess.run(cmd)
+        cmd = f'{OPENPOSE_BIN} --image-dir {image_dir} --write_json {keypoint_dir} --face --hand --display 0'
+        os.system(cmd)
 
         ### SMPLifyX - Convert 2D to 3D meshes
         # Next step
