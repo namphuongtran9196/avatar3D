@@ -1,3 +1,4 @@
+from modules.smplx.smplx_pose.model import ABS_DIR_PATH
 from modules.smplx.smplx_pose.smplifyx.utils import JointMapper, smpl_to_openpose
 from modules.smplx.smplx_pose.smplifyx.camera import create_camera
 from modules.smplx.smplx_pose.smplifyx.prior import create_prior
@@ -8,6 +9,9 @@ import torch
 import numpy as np
 import cv2
 import json
+import os
+import re
+from modules.smplx.smplx_pose.smplifyx.cmd_parser import parse_config
 from collections import namedtuple
 
 Keypoints = namedtuple('Keypoints',
@@ -15,14 +19,32 @@ Keypoints = namedtuple('Keypoints',
 
 Keypoints.__new__.__defaults__ = (None,) * len(Keypoints._fields)
 
+ABS_DIR_PATH = os.path.dirname(__file__)
+
 class SMPLifyXModel:
     def __init__(self, cfg: str):
         with open(cfg, 'r') as f:
             raw_cfg_input = f.read()
-        params_cfg = yaml.load(raw_cfg_input, Loader=yaml.SafeLoader)
         
+        loader = yaml.SafeLoader
+        loader.add_implicit_resolver(
+            u'tag:yaml.org,2002:float',
+            re.compile(u'''^(?:
+            [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
+            |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
+            |\\.[0-9_]+(?:[eE][-+][0-9]+)?
+            |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
+            |[-+]?\\.(?:inf|Inf|INF)
+            |\\.(?:nan|NaN|NAN))$''', re.X),
+            list(u'-+0123456789.'))
+
+        params_cfg = yaml.load(raw_cfg_input, Loader=loader)
+        params_cfg = {**params_cfg, **parse_config()}
+        
+        
+        params_cfg['vposer_ckpt'] = os.path.join(ABS_DIR_PATH, 'models', 'vposer_v1_0')
         self.model_params = dict(
-            model_path='models',
+            model_path=os.path.join(ABS_DIR_PATH, 'models'),
             joint_mapper=JointMapper(smpl_to_openpose(
                 model_type=params_cfg['model_type'],
                 use_hands=params_cfg['use_hands'],
@@ -40,11 +62,15 @@ class SMPLifyXModel:
             create_transl=False,
             **params_cfg
         )
-        self.male_model = smplx.create(gender='male', **self.model_params)
+
+        self.model_params['gender'] = 'male'
+        self.male_model = smplx.create(**self.model_params)
         # SMPL-H has no gender-neutral model
         if self.model_params.get('model_type') != 'smplh':
-            self.neutral_model = smplx.create(gender='neutral', **self.model_params)
-        self.female_model = smplx.create(gender='female', **self.model_params)
+            self.model_params['gender'] = 'neutral'
+            self.neutral_model = smplx.create(**self.model_params)
+        self.model_params['gender'] = 'female'
+        self.female_model = smplx.create(**self.model_params)
 
         float_dtype = self.model_params.get('float_dtype', 'float32')
         if float_dtype == 'float64':
@@ -55,13 +81,13 @@ class SMPLifyXModel:
             raise ValueError('Unknown float type {}, exiting!'.format(float_dtype))
         
         focal_length = self.model_params.get('focal_length')
-        camera = create_camera(focal_length_x=float(focal_length),
+        self.camera = create_camera(focal_length_x=float(focal_length),
                                 focal_length_y=float(focal_length),
                                 dtype=self.dtype,
                                 **self.model_params)
 
-        if hasattr(camera, 'rotation'):
-            camera.rotation.requires_grad = False
+        if hasattr(self.camera, 'rotation'):
+            self.camera.rotation.requires_grad = False
 
         use_hands = self.model_params.get('use_hands', True)
         use_face = self.model_params.get('use_face', True)
@@ -103,12 +129,12 @@ class SMPLifyXModel:
             prior_type=self.model_params.get('shape_prior_type', 'l2'),
             dtype=self.dtype, **self.model_params)
 
-        self.angle_prior = create_prior(prior_type='angle', dtype=self.dtype)
+        self.angle_prior = create_prior(prior_type='angle', dtype=self.dtype, **self.model_params)
 
         # Run on CPU, configure to run on GPU later
         device = torch.device('cpu')
 
-        self.joint_weights = self._get_joint_weights(self.model_params, self.dtype).to(device=device, dtype=dtype)
+        self.joint_weights = self._get_joint_weights(self.model_params, self.dtype).to(device=device, dtype=self.dtype)
         self.joint_weights.unsqueeze_(dim=0)
     
     def fit(self, image_path, keypoint_path, gender:str='male'):
@@ -129,6 +155,7 @@ class SMPLifyXModel:
         results = fit_single_frame(
             img, keypoints,
             body_model=body_model,
+            camera=self.camera,
             joint_weights=self.joint_weights,
             dtype=self.dtype,
             # output_folder=output_folder,
@@ -147,7 +174,7 @@ class SMPLifyXModel:
         )
         return results
 
-    def read_keypoints(keypoint_fn, use_hands=True, use_face=True,
+    def read_keypoints(self, keypoint_fn, use_hands=True, use_face=True,
                    use_face_contour=False):
 
         with open(keypoint_fn) as keypoint_file:
