@@ -40,9 +40,9 @@ from collections import defaultdict
 import cv2
 import PIL.Image as pil_img
 
-from optimizers import optim_factory
+from modules.smplx.smplx_pose.smplifyx.optimizers import optim_factory
 
-import fitting
+from modules.smplx.smplx_pose.smplifyx import fitting
 from human_body_prior.tools.model_loader import load_vposer
 os.environ['PYOPENGL_PLATFORM'] = 'egl'
 

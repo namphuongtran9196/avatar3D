@@ -29,8 +29,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from mesh_viewer import MeshViewer
-import utils
+from modules.smplx.smplx_pose.smplifyx.mesh_viewer import MeshViewer
+from modules.smplx.smplx_pose.smplifyx import utils
 
 
 @torch.no_grad()

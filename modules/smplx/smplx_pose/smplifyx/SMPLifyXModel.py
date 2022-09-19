@@ -1,4 +1,3 @@
-from modules.smplx.smplx_pose.model import ABS_DIR_PATH
 from modules.smplx.smplx_pose.smplifyx.utils import JointMapper, smpl_to_openpose
 from modules.smplx.smplx_pose.smplifyx.camera import create_camera
 from modules.smplx.smplx_pose.smplifyx.prior import create_prior
@@ -23,25 +22,7 @@ ABS_DIR_PATH = os.path.dirname(__file__)
 
 class SMPLifyXModel:
     def __init__(self, cfg: str):
-        with open(cfg, 'r') as f:
-            raw_cfg_input = f.read()
-        
-        loader = yaml.SafeLoader
-        loader.add_implicit_resolver(
-            u'tag:yaml.org,2002:float',
-            re.compile(u'''^(?:
-            [-+]?(?:[0-9][0-9_]*)\\.[0-9_]*(?:[eE][-+]?[0-9]+)?
-            |[-+]?(?:[0-9][0-9_]*)(?:[eE][-+]?[0-9]+)
-            |\\.[0-9_]+(?:[eE][-+][0-9]+)?
-            |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\\.[0-9_]*
-            |[-+]?\\.(?:inf|Inf|INF)
-            |\\.(?:nan|NaN|NAN))$''', re.X),
-            list(u'-+0123456789.'))
-
-        params_cfg = yaml.load(raw_cfg_input, Loader=loader)
-        params_cfg = {**params_cfg, **parse_config()}
-        
-        
+        params_cfg = parse_config(f'-c {cfg}')
         params_cfg['vposer_ckpt'] = os.path.join(ABS_DIR_PATH, 'models', 'vposer_v1_0')
         self.model_params = dict(
             model_path=os.path.join(ABS_DIR_PATH, 'models'),

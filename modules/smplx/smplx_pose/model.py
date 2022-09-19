@@ -42,8 +42,9 @@ class SMPLX_Pose(BaseModel):
         keypoint_dir = os.path.join(BASE_DIR_NAME['kp'], dir_name)
         # keypoint_images_dir = os.path.join(BASE_DIR_NAME['kp_img'], dir_name)
         
-        OPENPOSE_BIN = os.path.join(ABS_DIR_PATH, 'openpose', 'build', 'examples', 'openpose', 'openpose.bin')
-        cmd = f'{OPENPOSE_BIN} --image-dir {image_dir} --write_json {keypoint_dir} --face --hand --display 0 --render-pose 0'
+        OPENPOSE_DIR = os.path.join(ABS_DIR_PATH, 'openpose')
+        OPENPOSE_BIN = os.path.join('.', 'build', 'examples', 'openpose', 'openpose.bin')
+        cmd = f'cd {OPENPOSE_DIR} && {OPENPOSE_BIN} --image-dir {image_dir} --write_json {keypoint_dir} --face --hand --display 0 --render-pose 0'
         os.system(cmd)
 
         ### SMPLifyX - Convert 2D to 3D meshes
