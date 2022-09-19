@@ -17,9 +17,14 @@ SMPL_CONFIG_FILE = {
 
 class SMPLX_Pose(BaseModel):
     """SMPL-X head model"""
-    def __init__(self, # Choose SMPL gender ['male', 'female', 'neutral']
-                model_type='smplx', # Choose SMPL type ['smplx', 'smplh', 'smpl']
-                name='SMPLX_Pose'):
+    def __init__(self,
+                model_type: str = 'smplx',
+                name: str = 'SMPLX_Pose'):
+        """
+        Args:
+            model_type (str): Input the model type (smplx, smpl, smplh)
+            name (str): name of the base model
+        """
         super(SMPLX_Pose, self).__init__(name)
 
         assert model_type in ['smplx', 'smplh', 'smpl'], \
@@ -28,19 +33,18 @@ class SMPLX_Pose(BaseModel):
         self.model_type = model_type
         self.xmodel = XModel(SMPL_CONFIG_FILE[model_type])
     
-    # the inherited predict function is used to call your custom functions
-    def predict(self, dir_name, gender, **kwargs):
+    def predict(self, dir_name: str, gender: str, **kwargs):
         """Predicts the output of the model given the inputs.
 
         Args:
-            inputs (tensor/list/tuple): specifies the input to the model.
+            dir_name (str): the directory name which includes list of images (inside data/...)
+            gender (str): gender of the model ('male', 'female', 'neutral')
             **kwargs: additional keyword arguments.
         """
 
         ### Extract OpenPose keypoints
         image_dir = os.path.join(BASE_DIR_NAME['img'], dir_name)
         keypoint_dir = os.path.join(BASE_DIR_NAME['kp'], dir_name)
-        # keypoint_images_dir = os.path.join(BASE_DIR_NAME['kp_img'], dir_name)
         
         OPENPOSE_DIR = os.path.join(ABS_DIR_PATH, 'openpose')
         OPENPOSE_BIN = os.path.join('.', 'build', 'examples', 'openpose', 'openpose.bin')
@@ -48,7 +52,13 @@ class SMPLX_Pose(BaseModel):
         os.system(cmd)
 
         ### SMPLifyX - Convert 2D to 3D meshes
-        # Next step
-        # for x in image_dir:
-        #     img_path, keypoint_path
-        #     self.xmodel.fit(img_path, keypoint_path)
+        mesh_results = dict()
+        for image, keypoint in zip(sorted(os.listdir(image_dir)), sorted(os.listdir(keypoint_dir))):
+            image_abs_path = os.path.join(image_dir, image)
+            keypoint_abs_path = os.path.join(keypoint_dir, keypoint)
+            results = self.xmodel.fit(image_abs_path, keypoint_abs_path, gender)
+
+            image_name = image.split('.')[0]
+            mesh_results[image_name] = results
+        
+        return mesh_results
