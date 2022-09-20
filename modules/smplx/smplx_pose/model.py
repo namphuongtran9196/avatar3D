@@ -1,3 +1,4 @@
+from genericpath import exists
 import os
 from modules.smplx.model3d import BaseModel
 from modules.smplx.smplx_pose.smplifyx.SMPLifyXModel import SMPLifyXModel as XModel
@@ -6,7 +7,7 @@ ABS_DIR_PATH = os.path.dirname(__file__)
 BASE_DIR_NAME = {
     'img': os.path.join(ABS_DIR_PATH, 'data/images'),
     'kp': os.path.join(ABS_DIR_PATH, 'data/keypoints'),
-    'op_img': os.path.join(ABS_DIR_PATH,'data/openpose_images')
+    # 'op_img': os.path.join(ABS_DIR_PATH,'data/openpose_images')
 }
 SMPL_CONFIG_FILE = {
     'smpl': os.path.join(ABS_DIR_PATH, 'smplifyx/cfg_files/fit_smpl.yaml'),
@@ -31,7 +32,13 @@ class SMPLX_Pose(BaseModel):
                Exception('model_type is undefined, make sure it is "smplx", "smplh" or "smpl"')
         
         self.model_type = model_type
+
+        assert os.path.exists(SMPL_CONFIG_FILE[model_type]), Exception('The config file does not found, please make sure it exists!')
         self.xmodel = XModel(SMPL_CONFIG_FILE[model_type])
+
+        for data_folder in BASE_DIR_NAME.values():
+            if not os.path.exists(data_folder):
+                os.makedirs(data_folder, exist_ok=True)
     
     def predict(self, dir_name: str, gender: str, **kwargs):
         """Predicts the output of the model given the inputs.
@@ -43,8 +50,13 @@ class SMPLX_Pose(BaseModel):
         """
 
         ### Extract OpenPose keypoints
+        print('Extracting OpenPose keypoints...')
+
         image_dir = os.path.join(BASE_DIR_NAME['img'], dir_name)
+        assert os.path.join(image_dir), Exception(f'{image_dir} does not found!')
         keypoint_dir = os.path.join(BASE_DIR_NAME['kp'], dir_name)
+        if not os.path.exists(keypoint_dir):
+            os.makedirs(keypoint_dir, exist_ok=True)
         
         OPENPOSE_DIR = os.path.join(ABS_DIR_PATH, 'openpose')
         OPENPOSE_BIN = os.path.join('.', 'build', 'examples', 'openpose', 'openpose.bin')
@@ -52,8 +64,10 @@ class SMPLX_Pose(BaseModel):
         os.system(cmd)
 
         ### SMPLifyX - Convert 2D to 3D meshes
+        print('Converting 2D images to 3D meshes...')
         mesh_results = dict()
         for image, keypoint in zip(sorted(os.listdir(image_dir)), sorted(os.listdir(keypoint_dir))):
+            print(f'- Converting {image}...')
             image_abs_path = os.path.join(image_dir, image)
             keypoint_abs_path = os.path.join(keypoint_dir, keypoint)
             results = self.xmodel.fit(image_abs_path, keypoint_abs_path, gender)
