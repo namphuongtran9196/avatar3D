@@ -10,7 +10,7 @@ from modules.smplx.smplx_head.model import SMPLX_Head
 from modules.smplx.smplx_pose.model import SMPLX_Pose
 from modules.smplx.smplx_texture.model import SMPLX_Texture
 from modules.smplx.smplx_uvmap.model import SMPLX_UVmap
-
+    
 # Init models
 model_head = SMPLX_Head(
                         model_3dffa_config_path=os.path.abspath("modules/smplx/smplx_head/src/V2_3DDFA/configs/mb1_120x120.yml"), 
@@ -24,10 +24,15 @@ model_texture = SMPLX_Texture()
 model_uvmap = SMPLX_UVmap()
     
 def index(request):
+    dir_name = 'test_upload'
+    # For testing this, upload test images to `test_upload` folder
+    # if there's no `test_upload` folder, please create folders `data/images` inside `smplx_pose`
+    model.predict(dir_name, gender='male')
+
     model_head.predict(None)
-    model_pose.predict(None)
-    model_texture.predict(None)
-    model_uvmap.predict(None)
+    #model_pose.predict(None)
+    #model_texture.predict(None)
+    #model_uvmap.predict(None)
     return HttpResponse("Test model finished! Please check the console output.")
 
 @csrf_exempt
