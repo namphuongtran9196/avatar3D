@@ -4,6 +4,7 @@ import torch
 import tqdm
 import numpy as np
 import logging
+import torch.nn as nn
 logging.basicConfig(level=logging.INFO)
 
 from modules.smplx.model3d import BaseModel
@@ -11,6 +12,73 @@ from torch.autograd import Variable
 from .src.utils import *
 from .src.V2_3DDFA.V2_3DDFA import Face3DDFA
 from .src.models import SMPLX
+
+class SMPLX_Fitting(nn.Module):
+    def __init__(self, smplx_path="models/smplx",gender='neutral',use_face_contour=True,num_betas=10,num_expression_coeffs=10,num_pca_comps=6, device='cpu'):
+        super(SMPLX_Fitting, self).__init__()
+        # The model gender
+        gender = gender # 'neutral' or 'male' or 'female'
+        # Whether to compute the keypoints that form the facial contour
+        use_face_contour=use_face_contour
+        # Number of shape components to use
+        num_betas = num_betas
+        # Number of expression components to use
+        num_expression_coeffs = num_expression_coeffs
+        # The number of PCA components to use for each hand
+        num_pca_comps = num_pca_comps
+                    
+        self.model = SMPLX(model_path = smplx_path, 
+                            gender=gender, 
+                            use_face_contour=use_face_contour,
+                            num_betas=num_betas,
+                            num_expression_coeffs=num_expression_coeffs,
+                            num_pca_comps = num_pca_comps)
+        for layer in self.model.parameters():
+            layer.requires_grad = False
+            
+        self.dtype = torch.cuda.FloatTensor if device=='gpu' else torch.FloatTensor
+        self._init_variables()
+        
+    def _init_variables(self):
+        self.global_orient_variable = torch.nn.Parameter(torch.ones((1,3)).type(self.dtype) * 0.0001, requires_grad=True)
+        # self.betas_variable = torch.nn.Parameter(torch.ones((1, self.model.num_betas)).type(self.dtype) * 0.0001, requires_grad=True)
+        self.jaw_pose_variable = torch.nn.Parameter(torch.ones((1,3)).type(self.dtype) * 0.0001, requires_grad=True)
+        self.leye_pose_variable = torch.nn.Parameter(torch.ones((1, 3)).type(self.dtype) * 0.0001, requires_grad=True)
+        self.reye_pose_variable = torch.nn.Parameter(torch.ones((1, 3)).type(self.dtype) * 0.0001, requires_grad=True)
+        self.transl_variable = torch.nn.Parameter(torch.ones((1, 3)).type(self.dtype)* 0.0001, requires_grad=True)
+        self.expression_variable = torch.nn.Parameter(torch.ones((1, self.model.num_expression_coeffs)).type(self.dtype)* 0.0001, requires_grad=True)
+        self.scale_axis_z = torch.nn.Parameter(torch.ones((1, 1)).type(self.dtype)* 1000, requires_grad=True)
+        # self.body_pose_variable = torch.nn.Parameter(torch.ones((1, self.model.NUM_BODY_JOINTS * 3)).type(self.dtype)* 0.0001, requires_grad=True)
+    
+    def set_target_2d_lmks(self, target_2d_lmks):
+        self.target_2d_lmks = target_2d_lmks
+        
+    def forward(self, x):
+        global_orient = x.mm(self.global_orient_variable)
+        # betas = x.mm(self.betas_variable)
+        jaw_pose = x.mm(self.jaw_pose_variable)
+        leye_pose = x.mm(self.leye_pose_variable)
+        reye_pose = x.mm(self.reye_pose_variable)
+        tranlsl = x.mm(self.transl_variable)
+        expression = x.mm(self.expression_variable)
+        # body_pose = x.mm(self.body_pose_variable)
+        scale_z = x.mm(self.scale_axis_z)
+        
+        output = self.model(global_orient=global_orient,
+                            # betas=betas,
+                            jaw_pose=jaw_pose,
+                            leye_pose=leye_pose,
+                            reye_pose=reye_pose,
+                            transl=tranlsl,
+                            expression=expression,
+                            # body_pose=body_pose,
+                            return_verts=True)
+        
+        # Compute scale variables.
+        s2d = torch.mean(torch.norm(self.target_2d_lmks -torch.mean(self.target_2d_lmks, dim=0), dim=1))
+        s3d = torch.mean(torch.sqrt(torch.sum(torch.square(output.joints.squeeze()[76:,:]-torch.mean(output.joints.squeeze()[76:,:], axis=0))[:, :2], dim=1)))
+        
+        return output, s2d/s3d, scale_z, (jaw_pose, leye_pose, reye_pose, expression)
 
 class SMPLX_Head(BaseModel):
     """SMPL-X head model"""
@@ -24,85 +92,32 @@ class SMPLX_Head(BaseModel):
         # Create your model here
         self.model_3dffa = Face3DDFA(model_3dffa_config_path)
 
-        self.smplx_neutral = SMPLX(model_path = model_smplx_path, 
-                                    gender='neutral', 
-                                    use_face_contour=True,
-                                    num_betas=100,
-                                    num_expression_coeffs=10,
-                                    num_pca_comps = 6,
-                                    create_expression = True,
-                                    create_jaw_pose = True,
-                                    create_leye_pose = True,
-                                    create_reye_pose=True,
-                                    )
-        self.smplx_male = SMPLX(model_path = model_smplx_path, 
-                                    gender='male', 
-                                    use_face_contour=True,
-                                    num_betas=100,
-                                    num_expression_coeffs=10,
-                                    num_pca_comps = 6,
-                                    create_expression = True,
-                                    create_jaw_pose = True,
-                                    create_leye_pose = True,
-                                    create_reye_pose=True,
-                                    )
-        self.smplx_female = SMPLX(model_path = model_smplx_path, 
-                                    gender='female', 
-                                    use_face_contour=True,
-                                    num_betas=100,
-                                    num_expression_coeffs=10,
-                                    num_pca_comps = 6,
-                                    create_expression = True,
-                                    create_jaw_pose = True,
-                                    create_leye_pose = True,
-                                    create_reye_pose=True,
-                                    )
-    
-        # Remove gradient
-        for layer in self.smplx_neutral.parameters():
-            layer.requires_grad = False
-        for layer in self.smplx_male.parameters():
-            layer.requires_grad = False
-        for layer in self.smplx_female.parameters():
-            layer.requires_grad = False
         
+        self.smplx_neutral = SMPLX_Fitting(smplx_path=model_smplx_path,
+                                            gender='neutral',
+                                            use_face_contour=True,
+                                            num_betas=100,
+                                            num_expression_coeffs=100,
+                                            num_pca_comps=6,
+                                            device='cpu')
+
+        self.smplx_male = SMPLX_Fitting(smplx_path=model_smplx_path,
+                                            gender='male',
+                                            use_face_contour=True,
+                                            num_betas=100,
+                                            num_expression_coeffs=100,
+                                            num_pca_comps=6,
+                                            device='cpu')
         
-        self.device = device
-        self.to_device(torch.device(self.device))
+        self.smplx_female = SMPLX_Fitting(smplx_path=model_smplx_path,
+                                            gender='female',
+                                            use_face_contour=True,
+                                            num_betas=100,
+                                            num_expression_coeffs=100,
+                                            num_pca_comps=6,
+                                            device='cpu')
         self.max_iter = max_iter
         self.uvmap_path = uvmap_path
-        
-    def to_device(self,device):
-        self.smplx_neutral.to(device)
-        self.smplx_male.to(device)
-        self.smplx_female.to(device)
-
-    def _init_variable(self):
-        
-        # Set dtype to float32
-        dtype = torch.cuda.FloatTensor if self.device == 'gpu' else torch.FloatTensor
-        
-        # Create dummy input data without gradients
-        dummy_input = Variable(torch.ones(1, 1).type(dtype), requires_grad=False)
-
-        # Control the model shape, like thin or fat. [Batch_size , num_betas]  
-        betas = torch.zeros([1, self.smplx_neutral.num_betas]).type(dtype)
-        # Control the hand pose. [Batch_size, num_pca_comps]
-        left_hand_pose = torch.zeros([1, self.smplx_neutral.num_pca_comps]).type(dtype)
-        right_hand_pose = torch.zeros([1, self.smplx_neutral.num_pca_comps]).type(dtype)
-        # Control the model pose. [Batch_size, 3]
-        body_pose = torch.zeros([1, self.smplx_neutral.NUM_BODY_JOINTS * 3]).type(dtype)
-
-        # Create torch variables
-        global_orient_variable = Variable(torch.zeros([1, 3]).type(dtype), requires_grad=True) # [Batch_size, 3]
-        jaw_pose_variable = Variable(torch.randn([1, 3]).type(dtype), requires_grad=True) # [Batch_size, 3]
-        leye_pose_variable = Variable(torch.randn([1, 3]).type(dtype), requires_grad=True)  # [Batch_size, 3] [x, y]
-        reye_pose_variable = Variable(torch.randn([1, 3]).type(dtype), requires_grad=True) # [Batch_size, 3]
-        transl_variable = Variable(torch.randn([1, 3]).type(dtype), requires_grad=True) # [Batch_size, 3]
-        expression_variable = Variable(torch.randn([1, self.smplx_neutral.num_expression_coeffs]).type(dtype), requires_grad=True) # [Batch_size, num_expression_coeffs]
-        
-        return dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-                                    leye_pose_variable, reye_pose_variable, body_pose, transl_variable, expression_variable
 
     def _predict_3dffa(self, img):
         """
@@ -133,37 +148,10 @@ class SMPLX_Head(BaseModel):
         # normalize
         lmk3D_true[:,1] = img_crop.shape[0] - lmk3D_true[:,1] # invert y axis
         lmk3D_true = lmk3D_true / np.array([img_crop.shape[1], img_crop.shape[0], np.max(lmk3D_true[:, 2])])
-        lmk3D_true = torch.from_numpy(lmk3D_true).float().to(torch.device(self.device))
+        lmk3D_true = torch.from_numpy(lmk3D_true).float()
 
         return lmk3D_true, img_crop
     
-    def _predict_smplx(self, model, dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-                                                leye_pose_variable, reye_pose_variable, body_pose, transl_variable, expression_variable):
-        """
-        Predict SMPL-X model from variables
-        """
-        # Dot product
-        global_orient_pred = dummy_input.mm(global_orient_variable)
-        jaw_pose_pred = dummy_input.mm(jaw_pose_variable)
-        leye_pose_pred = dummy_input.mm(leye_pose_variable)
-        reye_pose_pred = dummy_input.mm(reye_pose_variable)
-        expression_pred = dummy_input.mm(expression_variable)
-        transl_pred = dummy_input.mm(transl_variable)
-
-        output = model(
-                betas=betas,
-                body_pose=body_pose,
-                left_hand_pose = left_hand_pose,
-                right_hand_pose = right_hand_pose,
-                global_orient=global_orient_pred,
-                expression=expression_pred,
-                jaw_pose = jaw_pose_pred,
-                leye_pose = leye_pose_pred,
-                reye_pose = reye_pose_pred,
-                transl = transl_pred,
-                    return_verts=True,)
-
-        return output
     # the inherited predict function is used to call your custom functions
     def predict(self, inputs, gender='neutral', **kwargs):
         """Predicts the output of the model given the inputs.
@@ -174,125 +162,68 @@ class SMPLX_Head(BaseModel):
         """
         assert gender in ['neutral', 'male', 'female'], "Gender must be neutral, male or female"
         # Set dtype to float32
-        device = torch.device(self.device)
-        dtype = torch.cuda.FloatTensor if self.device == 'gpu' else torch.FloatTensor
-
+        device = torch.device('cpu')
+        dtype = torch.FloatTensor
         # Get model
         model = self.smplx_neutral if gender == 'neutral' else self.smplx_male if gender == 'male' else self.smplx_female
-        
-        # Init variable
-        dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-            leye_pose_variable, reye_pose_variable, body_pose, transl_variable, expression_variable = self._init_variable()
         
         # Clone the image
         img_raw = inputs.copy()
         # Predict the 3D face landmarks
         logging.info("Predicting 3D face landmarks...")
         lmk3D_true, img_crop = self._predict_3dffa(img_raw)
+        model.set_target_2d_lmks(lmk3D_true[:, :2])
+        
         # Copy the cropped image for create the UV map
         source_img = img_crop.copy()
         
-        # Create first pass
-        output = self._predict_smplx(model, dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-                                                    leye_pose_variable, reye_pose_variable, body_pose, transl_variable, expression_variable)
-        
-        # Calculate camera parameters
-        s2d = torch.mean(torch.norm(lmk3D_true[:,:2] -torch.mean(lmk3D_true[:,:2], dim=0), dim=1))
-        s3d = torch.mean(torch.sqrt(torch.sum(torch.square(output.joints.squeeze()[76:,:]-torch.mean(output.joints.squeeze()[76:,:], axis=0))[:, :2], dim=1)))    
-        torch_scale_variable = Variable((s2d/s3d).type(dtype), requires_grad=True)
-
-
-        # Optimize the parameters of the model
-        learning_rate = 0.001
-        best_loss = 999999
-        loss = 999999
-        step = 0
-        global_orient, jaw_pose, leye_pose, reye_pose, transl, expression, torch_scale = None, None, None, None, None, None, None
+        # Create the optimizer and loss function
+        criterion = torch.nn.MSELoss(reduction='sum')
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
 
         logging.info("Optimizing the parameters of the smplx model...")
-        while loss > 0.001:
-            step+=1
-            # Forward pass
-            output = self._predict_smplx(model, dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-                                                    leye_pose_variable, reye_pose_variable, body_pose, transl_variable, expression_variable)
-
-            # Get the 3D face landmarks of smplx
-            lmk3D_pred = output.joints.squeeze()[76:,:]
-            # Project the 3D face landmarks to 2D
-            lmks_proj_2d = torch_project_points(lmk3D_pred, torch_scale_variable, torch.zeros(2).to(device), device)
-            # Calculate the MSE loss between the 2D landmarks
-            loss = (lmks_proj_2d - lmk3D_true[:,:2]).pow(2).sum()
+        # dummy input for the optimizer
+        dummy_input = torch.ones((1, 1)).float()
+        for step in range(self.max_iter):
+            if step > self.max_iter * 0.2 and step < self.max_iter * 0.4:
+                for g in optimizer.param_groups:
+                    g['lr'] = 1e-3
+            elif step > self.max_iter*0.4:
+                for g in optimizer.param_groups:
+                    g['lr'] = 1e-4
+            # Forward pass: Compute predicted y by passing x to the model
+            y_pred, torch_scale, scale_z, _ = model(dummy_input)
             
-            if step % 500 == 0:
-                # Save the best parameters
-                if loss < best_loss:
-                    best_loss = loss
-                    global_orient = dummy_input.mm(global_orient_variable).data
-                    jaw_pose = dummy_input.mm(jaw_pose_variable).data.detach()
-                    leye_pose = dummy_input.mm(leye_pose_variable).data.detach()
-                    reye_pose = dummy_input.mm(reye_pose_variable).data.detach()
-                    transl = dummy_input.mm(transl_variable).data.detach()
-                    expression = dummy_input.mm(expression_variable).data.detach()
-                    torch_scale = torch_scale_variable.data.detach()
-                    logging.info("{} Current loss: {}".format(step, loss.detach().cpu().numpy()))
-            if np.isnan(loss.detach().cpu().numpy()):
-                logging.info("Reinitializing because of NaN")
-                dummy_input,betas, left_hand_pose, right_hand_pose, global_orient_variable, jaw_pose_variable, \
-                                    leye_pose_variable, reye_pose_variable, transl_variable, expression_variable = self._init_variable()
-                loss = 99999999
-                continue
+            y_pred_proj = torch_project_points(y_pred.joints.squeeze()[76:,:], torch_scale, torch.zeros(2), torch.device('cpu'))
+            # Compute and print loss
+            loss1 = criterion(y_pred_proj.flatten(), lmk3D_true[:,:2].flatten())
+            loss2 = criterion(y_pred.joints.squeeze()[76:,2:].flatten(), lmk3D_true[:,2:].flatten() / scale_z)
+            loss = loss1 + 0.2 * loss2
+                
+            if step % 100 == 99:
+                logging.info("Step: {} , Loss: {}".format(step, loss.item()))
 
-            # Use autograd to compute the backward pass.
+            # Zero gradients, perform a backward pass, and update the weights.
+            optimizer.zero_grad()
             loss.backward()
-
-            # Update weights using gradient descent;
-            global_orient_variable.data -= learning_rate * global_orient_variable.grad.data
-            jaw_pose_variable.data -= learning_rate * jaw_pose_variable.grad.data
-            leye_pose_variable.data -= learning_rate * leye_pose_variable.grad.data
-            reye_pose_variable.data -= learning_rate * reye_pose_variable.grad.data
-            expression_variable.data -= learning_rate * expression_variable.grad.data
-            transl_variable.data -= learning_rate * transl_variable.grad.data
-            torch_scale_variable.data -= learning_rate * torch_scale_variable.grad.data
-
-            # Manually zero the gradients after updating weights
-            global_orient_variable.grad.data.zero_()
-            jaw_pose_variable.grad.data.zero_()
-            leye_pose_variable.grad.data.zero_()
-            reye_pose_variable.grad.data.zero_()
-            expression_variable.grad.data.zero_()
-            transl_variable.grad.data.zero_()
-            torch_scale_variable.grad.data.zero_()
-            
-            if step > self.max_iter:
-                break
+            optimizer.step()
         
         logging.info("Creating UV map")
         # Forward pass
-        output = output = model(
-                betas=betas,
-                left_hand_pose=left_hand_pose,
-                right_hand_pose=right_hand_pose,
-                body_pose=body_pose,
-                global_orient=global_orient,
-                expression=expression,
-                jaw_pose = jaw_pose,
-                leye_pose = leye_pose,
-                reye_pose = reye_pose,
-                transl = transl,
-                    return_verts=True,)
+        output, torch_scale,_, (jaw_pose, leye_pose, reye_pose, expression) = model(dummy_input)
         
         # Project the 3D face landmarks to 2D
         proj_2d_points = torch_project_points(output.vertices[0], torch_scale, torch.zeros(2), torch.device('cpu'))
-
         # Change the y axis
         proj_2d_points[:, 1] = 1 - proj_2d_points[:, 1]
         proj_2d_points = proj_2d_points.detach().numpy().astype(np.float32)
-
+        
+        # Load the UV map
         vt,vn , fv, ft, fn  = load_uvmap(self.uvmap_path)
         
-        # create the UV map
-        uvmap_img = np.zeros((1000, 1000, 3), dtype=np.uint8)
-        
+        # load source image
+        texture_img = np.zeros((1000, 1000, 3), dtype=np.uint8)
+
         for i in tqdm.tqdm(range(len(fv))):
             # get vertices of the face
             v1, v2, v3 = fv[i]
@@ -315,21 +246,19 @@ class SMPLX_Head(BaseModel):
                 xy2 = [int(proj_2d_points[v2][0] * source_img.shape[1]), int(proj_2d_points[v2][1] * source_img.shape[0])]
                 xy3 = [int(proj_2d_points[v3][0] * source_img.shape[1]), int(proj_2d_points[v3][1] * source_img.shape[0])]
                 
-                
+                # get valid point based on the vertex normal
                 valid_point = True
                 for x, y in [xy1, xy2, xy3]:
                     if x < 0 or x >= source_img.shape[1] or y < 0 or y >= source_img.shape[0]:
                         valid_point = False
                 if not valid_point:
                     continue
-
+                
+                # Copy triangle from source image to texture image
                 tri1 = np.float32([[xy1, xy2, xy3]])
                 tri2 = np.float32([[uv1, uv2, uv3]])
-
                 black_img = np.zeros((1000, 1000, 3), dtype=np.uint8)
-
                 single_trimesh_texture = transfer_single_trimesh_texture(source_img, black_img, tri1, tri2)
-            
-                uvmap_img = np.where(single_trimesh_texture != 0, single_trimesh_texture, uvmap_img)
+                texture_img = np.where(single_trimesh_texture != 0, single_trimesh_texture, texture_img)
         
-        return uvmap_img, (jaw_pose, leye_pose, reye_pose, expression)
+        return texture_img, (jaw_pose.detach().numpy(), leye_pose.detach().numpy(), reye_pose.detach().numpy(), expression.detach().numpy())

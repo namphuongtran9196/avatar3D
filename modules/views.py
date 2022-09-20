@@ -10,7 +10,7 @@ from modules.smplx.smplx_head.model import SMPLX_Head
 from modules.smplx.smplx_pose.model import SMPLX_Pose
 from modules.smplx.smplx_texture.model import SMPLX_Texture
 from modules.smplx.smplx_uvmap.model import SMPLX_UVmap
-import numpy as np
+
 # Init models
 model_head = SMPLX_Head(
                         model_3dffa_config_path=os.path.abspath("modules/smplx/smplx_head/src/V2_3DDFA/configs/mb1_120x120.yml"), 
@@ -49,15 +49,13 @@ def avatar3d(request):
         img = decode_byte_img_base64(base_64_img)
 
         uvmap, data = model_head.predict(img)
-
-        vt = [[1,2,3],[3,4,5]]
-        vn = [[1,2,3],[3,4,5]]
-        fv = [[1,2,3],[3,4,5]]
-        ft = [[1,2,3],[3,4,5]]
-        fn = [[1,2,3],[3,4,5]]
-
+        jaw_pose, leye_pose, reye_pose, expression = data
         base_64_img_ret = encode_byte_img_base64(uvmap)
         if base_64_img_ret is None:
             return HttpResponse("Can not encode uvmap!")
-        data = {"uvmap": base_64_img_ret, "vt": vt, "vn": vn, "fv": fv, "ft": ft, "fn": fn}
+        import numpy as np
+        a = np.array([1,2,3])
+        a.tolist()
+        data = {"uvmap": base_64_img_ret, "jaw_pose": jaw_pose.tolist(), "leye_pose": leye_pose.tolist(), 
+                        "reye_pose": reye_pose.tolist(), "expression": expression.tolist()}
         return HttpResponse(json.dumps(data))
