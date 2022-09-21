@@ -1,17 +1,13 @@
-import cv2
 import json
 import base64
-import logging
 import requests
-import numpy as np
+import argparse
 
 NGROK_API = "http://127.0.0.1:8000"
 API_PYTORCH = f'{NGROK_API}/avatar3d/'
 TOKEN = 'this_is_my_custom_token'
-# USER_ID = "user_id"
-USER_ID= [1,2,3,4]
 
-def post_image(img_path):
+def post_image(img_front_path,img_back_path,gender):
     """ Encode image to base64 and send to server
 
     Args:
@@ -20,15 +16,27 @@ def post_image(img_path):
     Returns:
         json: json response from server in bytes format
     """
-    with open(img_path, 'rb') as f:
+    with open(img_front_path, 'rb') as f:
         # read image file in binary format
-        img_base64 = base64.b64encode(f.read()).decode('utf-8')
+        img_front_base64 = base64.b64encode(f.read()).decode('utf-8')
+    with open(img_back_path, 'rb') as f:
+        # read image file in binary format
+        img_back_path = base64.b64encode(f.read()).decode('utf-8')
     # add token to json data
-    data = {"image": img_base64, "token": TOKEN, "user_id": USER_ID}
+    data = {"image_front": img_front_base64,"image_back":img_back_path, "gender": gender, "token": TOKEN}
     # create a POST request
     response = requests.post(API_PYTORCH, data=json.dumps(data))
     return response.content
 
+def args_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-f', '--img_front', type=str, default='img_test/005_front.jpg')
+    parser.add_argument('-b', '--img_back', type=str, default='img_test/005_back.jpg')
+    parser.add_argument('-g', '--gender', type=str, default='neutral')
+    return parser.parse_args()
+    
 if __name__ == "__main__":
-    img_path = "/home/kuhaku/Code/Buso/avatar3d/samples/nguyen.png"
-    print(post_image(img_path))
+    args = args_parser()
+    img_front_path = args.img_front
+    img_back_path = args.img_back
+    post_image(img_front_path,img_back_path, gender = args.gender)
