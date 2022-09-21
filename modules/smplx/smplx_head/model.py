@@ -14,30 +14,25 @@ from .src.V2_3DDFA.V2_3DDFA import Face3DDFA
 from .src.models import SMPLX
 
 class SMPLX_Fitting(nn.Module):
-    def __init__(self, smplx_path="models/smplx",gender='neutral',use_face_contour=True,num_betas=10,num_expression_coeffs=10,num_pca_comps=6, device='cpu'):
+    def __init__(self, smplx_path="models/smplx",gender='neutral',use_face_contour=True,num_expression_coeffs=10, device='cpu'):
         super(SMPLX_Fitting, self).__init__()
         # The model gender
         gender = gender # 'neutral' or 'male' or 'female'
         # Whether to compute the keypoints that form the facial contour
         use_face_contour=use_face_contour
-        # Number of shape components to use
-        num_betas = num_betas
-        # Number of expression components to use
-        num_expression_coeffs = num_expression_coeffs
-        # The number of PCA components to use for each hand
-        num_pca_comps = num_pca_comps
                     
-        self.model = SMPLX(model_path = smplx_path, 
+        self.model = SMPLX(
+                            model_path = smplx_path, 
                             gender=gender, 
                             use_face_contour=use_face_contour,
-                            num_betas=num_betas,
                             num_expression_coeffs=num_expression_coeffs,
-                            num_pca_comps = num_pca_comps)
+                            )
         for layer in self.model.parameters():
             layer.requires_grad = False
             
         self.dtype = torch.cuda.FloatTensor if device=='gpu' else torch.FloatTensor
         self._init_variables()
+        self.use_face_from_smplify = False
         
     def _init_variables(self):
         self.global_orient_variable = torch.nn.Parameter(torch.ones((1,3)).type(self.dtype) * 0.0001, requires_grad=True)
@@ -53,14 +48,28 @@ class SMPLX_Fitting(nn.Module):
     def set_target_2d_lmks(self, target_2d_lmks):
         self.target_2d_lmks = target_2d_lmks
         
+    def set_face_smplify(self, jaw_pose, leye_pose, reye_pose, expression):
+        self.use_face_from_smplify = True
+        self.jaw_pose = torch.tensor(jaw_pose).type(self.dtype)
+        self.leye_pose = torch.tensor(leye_pose).type(self.dtype)
+        self.reye_pose = torch.tensor(reye_pose).type(self.dtype)
+        self.expression = torch.tensor(expression).type(self.dtype)
+        
+        
     def forward(self, x):
         global_orient = x.mm(self.global_orient_variable)
-        # betas = x.mm(self.betas_variable)
-        jaw_pose = x.mm(self.jaw_pose_variable)
+        tranlsl = x.mm(self.transl_variable)
         leye_pose = x.mm(self.leye_pose_variable)
         reye_pose = x.mm(self.reye_pose_variable)
-        tranlsl = x.mm(self.transl_variable)
         expression = x.mm(self.expression_variable)
+        # betas = x.mm(self.betas_variable)
+        if self.use_face_from_smplify:
+            jaw_pose = self.jaw_pose
+            # leye_pose = self.leye_pose
+            # reye_pose = self.reye_pose
+            # expression = self.expression
+        else:
+            jaw_pose = x.mm(self.jaw_pose_variable)
         # body_pose = x.mm(self.body_pose_variable)
         scale_z = x.mm(self.scale_axis_z)
         
@@ -87,7 +96,7 @@ class SMPLX_Head(BaseModel):
                         model_smplx_path="./models/smplx",
                         max_iter=10000,
                         uvmap_path = "./src/uvmap.obj",
-                        device = 'cpu'):
+                        num_expression_coeffs=10):
         super(SMPLX_Head, self).__init__(name)
         # Create your model here
         self.model_3dffa = Face3DDFA(model_3dffa_config_path)
@@ -96,29 +105,27 @@ class SMPLX_Head(BaseModel):
         self.smplx_neutral = SMPLX_Fitting(smplx_path=model_smplx_path,
                                             gender='neutral',
                                             use_face_contour=True,
-                                            num_betas=100,
-                                            num_expression_coeffs=100,
-                                            num_pca_comps=6,
+                                            num_expression_coeffs=num_expression_coeffs,
                                             device='cpu')
 
         self.smplx_male = SMPLX_Fitting(smplx_path=model_smplx_path,
                                             gender='male',
                                             use_face_contour=True,
-                                            num_betas=100,
-                                            num_expression_coeffs=100,
-                                            num_pca_comps=6,
+                                            num_expression_coeffs=num_expression_coeffs,
                                             device='cpu')
         
         self.smplx_female = SMPLX_Fitting(smplx_path=model_smplx_path,
                                             gender='female',
                                             use_face_contour=True,
-                                            num_betas=100,
-                                            num_expression_coeffs=100,
-                                            num_pca_comps=6,
+                                            num_expression_coeffs=num_expression_coeffs,
                                             device='cpu')
         self.max_iter = max_iter
         self.uvmap_path = uvmap_path
-
+    def set_face_smplify(self, jaw_pose, leye_pose, reye_pose, expression):
+        self.smplx_female.set_face_smplify(jaw_pose, leye_pose, reye_pose, expression)
+        self.smplx_male.set_face_smplify(jaw_pose, leye_pose, reye_pose, expression)
+        self.smplx_neutral.set_face_smplify(jaw_pose, leye_pose, reye_pose, expression)
+    
     def _predict_3dffa(self, img):
         """
         Predict 3D face from 2D image
@@ -185,7 +192,7 @@ class SMPLX_Head(BaseModel):
         # dummy input for the optimizer
         dummy_input = torch.ones((1, 1)).float()
         for step in range(self.max_iter):
-            if step > self.max_iter * 0.2 and step < self.max_iter * 0.4:
+            if step > self.max_iter * 0.5 and step < self.max_iter * 0.8:
                 for g in optimizer.param_groups:
                     g['lr'] = 1e-3
             elif step > self.max_iter*0.4:
@@ -261,4 +268,4 @@ class SMPLX_Head(BaseModel):
                 single_trimesh_texture = transfer_single_trimesh_texture(source_img, black_img, tri1, tri2)
                 texture_img = np.where(single_trimesh_texture != 0, single_trimesh_texture, texture_img)
         
-        return texture_img, (jaw_pose.detach().numpy(), leye_pose.detach().numpy(), reye_pose.detach().numpy(), expression.detach().numpy())
+        return texture_img, (jaw_pose, leye_pose, reye_pose, expression), (vt, vn , fv, ft, fn)
