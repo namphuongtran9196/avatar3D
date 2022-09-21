@@ -1,39 +1,36 @@
-from modules.smplx.model3d import BaseModel
+import sys
+sys.path.insert(1, 'avatar3d\\modules\\smplx')
+
+from model3d import BaseModel
+import numpy as np
+import cv2
 
 class SMPLX_UVmap(BaseModel):
-    """SMPL-X head model"""
-    def __init__(self, name='SMPLX_UVmap'): # Add your aguments here
+    """SMPL-X uv-map model"""
+    def __init__(self, name='SMPLX_UVmap'): # Add your arguments here
         super(SMPLX_UVmap, self).__init__(name)
-        # Create your model here
-        self.model1 = None # For example: self.load_model(model_path)
-        self.model2 = None # For example: self.load_model(model_path)
-    
-    # define you custom functions here
-    def _preprocess(self, inputs, **kwargs):
-        """Preprocesses the inputs.
-
-        Args:
-            inputs (tensor/list/tuple): specifies the input to the model.
-            **kwargs: additional keyword arguments.
-        """
-        pass
-        # Example
-        # image = cv2.imread(inputs)
-        # image = image / 255.0
-        # return image
 
     # the inherited predict function is used to call your custom functions
-    def predict(self, inputs, **kwargs):
-        """Predicts the output of the model given the inputs.
-
-        Args:
-            inputs (tensor/list/tuple): specifies the input to the model.
-            **kwargs: additional keyword arguments.
+    def predict(self, uv, uv_head, size=(1000, 1000)):
         """
+        It takes in the UV map of the SMPLX model and the UV map of the head model, and returns the UV
+        map of the SMPLX model with the head model's UV map pasted on top of it
+        
+        :param uv: the UV map of the SMPLX model
+        :param uv_head: The UV map of the head
+        :param size: the size of the output image
+        :return: The uvmap is being returned.
+        """
+ 
         print("Predict from SMPLX_UVmap")
-        pass
-        # Example
-        # image = self._preprocess(inputs)
-        # output1 = self.model1(image)
-        # output2 = self.model2(image)
-        # return output1, output2
+        uvmap = np.where(uv_head==0, uv, uv_head)
+        return cv2.resize(uvmap, size)
+
+             
+if __name__ == '__main__':
+    uv = cv2.imread('D:\\2D_to_3D\\texture_smplx.png')
+    uv_head = cv2.imread('D:\\2D_to_3D\\texture_smplx2.png')
+    smplx_uvmap = SMPLX_UVmap()
+    result = smplx_uvmap.predict(uv, uv_head)
+    cv2.imshow('Result', result)
+    cv2.waitKey(0)
