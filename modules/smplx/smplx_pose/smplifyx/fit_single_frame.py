@@ -475,13 +475,13 @@ def fit_single_frame(img,
             results.append({'loss': final_loss_val,
                             'result': result})
 
-        # with open(result_fn, 'wb') as result_file:
-        #     if len(results) > 1:
-        #         min_idx = (0 if results[0]['loss'] < results[1]['loss']
-        #                    else 1)
-        #     else:
-        #         min_idx = 0
-        #     pickle.dump(results[min_idx]['result'], result_file, protocol=2)
+        with open(result_fn, 'wb') as result_file:
+            if len(results) > 1:
+                min_idx = (0 if results[0]['loss'] < results[1]['loss']
+                           else 1)
+            else:
+                min_idx = 0
+            pickle.dump(results[min_idx]['result'], result_file, protocol=2)
 
     if save_meshes or visualize:
         body_pose = vposer.decode(

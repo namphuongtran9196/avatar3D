@@ -1,5 +1,3 @@
-import os
-import cv2
 import torch
 import tqdm
 import numpy as np
@@ -8,7 +6,6 @@ import torch.nn as nn
 logging.basicConfig(level=logging.INFO)
 
 from modules.smplx.model3d import BaseModel
-from torch.autograd import Variable
 from .src.utils import *
 from .src.V2_3DDFA.V2_3DDFA import Face3DDFA
 from .src.models import SMPLX

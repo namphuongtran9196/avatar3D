@@ -264,4 +264,5 @@ def complete_texture(f_texture, f_vis, f_mask):
                         to_visit.add((nx,ny))
                     texture_sum[nx][ny]+=texture[x][y]
                     texture_count[nx][ny][0]+=1
-    cv2.imwrite(f_texture[:-4]+'complete.png', texture)
+    return texture
+    # cv2.imwrite(f_texture[:-4]+'complete.png', texture)

@@ -40,7 +40,7 @@ class SMPLX_Pose(BaseModel):
             if not os.path.exists(data_folder):
                 os.makedirs(data_folder, exist_ok=True)
     
-    def predict(self, dir_name: str, gender: str, **kwargs):
+    def predict(self, dir_name: str, gender: str, output_path: str, **kwargs):
         """Predicts the output of the model given the inputs.
 
         Args:
@@ -70,7 +70,7 @@ class SMPLX_Pose(BaseModel):
             print(f'- Converting {image}...')
             image_abs_path = os.path.join(image_dir, image)
             keypoint_abs_path = os.path.join(keypoint_dir, keypoint)
-            results = self.xmodel.fit(image_abs_path, keypoint_abs_path, gender)
+            results = self.xmodel.fit(image_abs_path, keypoint_abs_path,output_path, gender)
 
             image_name = image.split('.')[0]
             mesh_results[image_name] = results
