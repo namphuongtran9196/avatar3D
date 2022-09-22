@@ -117,8 +117,21 @@ class SMPLifyXModel:
 
         self.joint_weights = self._get_joint_weights(self.model_params, self.dtype).to(device=device, dtype=self.dtype)
         self.joint_weights.unsqueeze_(dim=0)
+        del self.model_params['output_folder']
+        del self.model_params['result_folder']
     
-    def fit(self, image_path, keypoint_path, gender:str='male'):
+    def fit(self, image_path, keypoint_path, output_folder, gender:str='male'):
+        img_name = image_path.split('/')[-1].split('.')[0]
+        curr_result_folder = output_folder
+        curr_result_fn = os.path.join(output_folder,'results/{}/{}.pkl'.format(img_name,img_name))
+        curr_mesh_fn = os.path.join(output_folder,'meshes/{}/{}.obj'.format(img_name,img_name))
+        out_img_fn = os.path.join(output_folder, 'output.png')
+        output_folder = "modules/smplx/smplx_pose/data"
+        os.makedirs(curr_result_folder, exist_ok=True)
+        os.makedirs(output_folder, exist_ok=True)
+        os.makedirs(os.path.join(curr_result_folder, 'results', img_name), exist_ok=True)
+        os.makedirs(os.path.join(curr_result_folder, 'meshes',img_name), exist_ok=True)
+        
         img = cv2.imread(image_path).astype(np.float32)[:, :, ::-1] / 255.0
         keyp_tuple = self.read_keypoints(keypoint_path)
         if len(keyp_tuple.keypoints) < 1:
@@ -132,18 +145,18 @@ class SMPLifyXModel:
             body_model = self.female_model
         elif gender == 'neutral':
             body_model = self.neutral_model
-
+        
         results = fit_single_frame(
             img, keypoints,
             body_model=body_model,
             camera=self.camera,
             joint_weights=self.joint_weights,
             dtype=self.dtype,
-            # output_folder=output_folder,
-            # result_folder=curr_result_folder,
-            # out_img_fn=out_img_fn,
-            # result_fn=curr_result_fn,
-            # mesh_fn=curr_mesh_fn,
+            output_folder=output_folder,
+            result_folder=curr_result_folder,
+            out_img_fn=out_img_fn,
+            result_fn=curr_result_fn,
+            mesh_fn=curr_mesh_fn,
             shape_prior=self.shape_prior,
             expr_prior=self.expr_prior,
             body_pose_prior=self.body_pose_prior,

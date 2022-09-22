@@ -2,6 +2,7 @@ import json
 import base64
 import requests
 import argparse
+import time
 
 NGROK_API = "http://127.0.0.1:8000"
 API_PYTORCH = f'{NGROK_API}/avatar3d/'
@@ -30,8 +31,8 @@ def post_image(img_front_path,img_back_path,gender):
 
 def args_parser():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-f', '--img_front', type=str, default='img_test/005_front.jpg')
-    parser.add_argument('-b', '--img_back', type=str, default='img_test/005_back.jpg')
+    parser.add_argument('-f', '--img_front', type=str, default='samples/005_front.jpg')
+    parser.add_argument('-b', '--img_back', type=str, default='samples/005_back.jpg')
     parser.add_argument('-g', '--gender', type=str, default='neutral')
     return parser.parse_args()
     
@@ -39,4 +40,7 @@ if __name__ == "__main__":
     args = args_parser()
     img_front_path = args.img_front
     img_back_path = args.img_back
+    
+    start = time.time()
     post_image(img_front_path,img_back_path, gender = args.gender)
+    print(f'Elapsed time: {time.time() - start:.2f} seconds')

@@ -5,7 +5,7 @@
 
 
 ### Download models
-- Download and extract openpose model from [OpenPose]() and unzip it in the `modules/smplx/smplx_pose/openpose/models` or use the script to download model `getModels.sh`. You should have a folder `modules/smplx/smplx_pose/openpose/models` with the following files:
+- Download and extract openpose model from [OpenPose](https://drive.google.com/file/d/1vGZ9FVkoK0D42LOsglyw-Oac4MNe7Sws/view?usp=sharing) and unzip it in the `modules/smplx/smplx_pose/openpose/models` or use the script to download model `getModels.sh`. You should have a folder `modules/smplx/smplx_pose/openpose/models` with the following files:
 ```bash
 modules/smplx/smplx_pose/openpose/models
                                         ├──cameraParameters
@@ -32,7 +32,7 @@ modules/smplx/smplx_pose/openpose/models
                                         ├──getModels.sh
 ```
 
-- Download and extract smplx, vposer model from [SMPLX, VPoser]() and unzip it in the `modules/smplx/smplx_pose/smplifyx/models`. You should have a folder `modules/smplx/smplx_pose/smplifyx/models` with the following files:
+- Download and extract smplx, vposer model from [SMPLX, VPoser](https://drive.google.com/file/d/1Q-azs3V8i88Td28fXL-4VGmgmJ_UL-58/view?usp=sharing) and unzip it in the `modules/smplx/smplx_pose/smplifyx/models`. You should have a folder `modules/smplx/smplx_pose/smplifyx/models` with the following files:
 ```bash
 modules/smplx/smplx_pose/smplifyx/models
                                         ├──smplx
@@ -52,7 +52,7 @@ modules/smplx/smplx_pose/smplifyx/models
                                                 ├──vposer_smpl.py
 ```
 
-- Download and extract 3DFFA models from [3DFFA_v2](https://github.com/cleardusk/3DDFA_V2) and unzip it in the `modules/smplx/smplx_head/src/V2_3DDFA/weights`. You should have a folder `modules/smplx/smplx_head/src/V2_3DDFA/weights` with the following files:
+- Download and extract 3DFFA models from [3DFFA_v2](https://drive.google.com/file/d/1VA0GMk2e2DSYNg1YeW4mmLI1uL_Z_d8T/view?usp=sharing) and unzip it in the `modules/smplx/smplx_head/src/V2_3DDFA/weights`. You should have a folder `modules/smplx/smplx_head/src/V2_3DDFA/weights` with the following files:
 ```bash
 modules/smplx/smplx_head/src/V2_3DDFA/weights
                                             ├──mb1
