@@ -7,15 +7,11 @@ ABS_DIR_PATH = os.path.dirname(__file__)
 class SMPLX_Texture(BaseModel):
     """SMPL-X head model"""
     def __init__(self, 
-                 output_path = 'outputs',
                 model='smplx', # Choose (smpl, smplx)
                 name='SMPLX_Texture',
                 ): # Add your aguments here
         super(SMPLX_Texture, self).__init__(name)
         self.model = model
-        self.output_path=output_path
-        if not os.path.exists(self.output_path):
-            os.makedirs(self.output_path, exist_ok=True)
 
     # the inherited predict function is used to call your custom functions
     def predict(self, smplifyx_out_path, front_img_path, back_img_path, output_fn, **kwargs):
@@ -53,7 +49,7 @@ class SMPLX_Texture(BaseModel):
                 raise(Exception("%d file for the back is not found"%ftype))
                 
                 
-        npath = os.path.join(self.output_path, output_fn)
+        npath = os.path.join(smplifyx_out_path, output_fn)
             
         # step.1: produce single frame texture
         print('Producing single frame texture')    
@@ -78,10 +74,3 @@ class SMPLX_Texture(BaseModel):
         complete_uvmap = textured_smplx.complete_texture(f_acc_texture, f_acc_vis, f_mask)
         
         return complete_uvmap
-    
-        # # finish: copy the result
-        # print('Copying the result...')
-        # shutil.copyfile(f_acc_texture[:-4]+'complete.png',
-        #                 os.path.join(self.output_path, '%s.png'%output_fn))
-
-        # return os.path.join(self.output_path, '%s.png'%output_fn) 
